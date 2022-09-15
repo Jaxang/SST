@@ -47,7 +47,14 @@ def single_gpu_test(model,
         "occupied_bev": np.zeros((len(data_loader), 200, 200), dtype=np.int8),
         "gt_num_points_bev": np.zeros((len(data_loader), 200, 200)),
         "diff_num_points_bev": np.zeros((len(data_loader), 200, 200))}
+
+    num_test_samples = len(data_loader)
+    num_viz = 20
+    period = num_test_samples//num_viz
     for i, data in enumerate(data_loader):
+        if i % period:
+            continue
+        
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, pretrain=show_pretrain, **data)
 
@@ -203,7 +210,7 @@ def single_gpu_test(model,
                     plt.title(f"Diff in predicted number of points per voxel BEV, Datapoint {i}, batch {b}")
                     plt.savefig(f"diff_num_points_bev{i}_{b}.png")
                     plt.close()"""
-            """if result["points"] is not None:
+            if result["points"] is not None:
                 # xticks = np.arange(result["point_cloud_range"][0], result["point_cloud_range"][3] + 0.000001, step=result["voxel_shape"][0])
                 xticks_large = np.arange(-50, 50 + 0.000001, 0.5*16)
                 xticks_small = np.arange(0, 15 + 0.000001, 0.5)
@@ -236,30 +243,95 @@ def single_gpu_test(model,
                     gt_mask = (gt_points[:, 0] > 0) & (gt_points[:, 0] < 15) & (gt_points[:, 1] > -7.5) & (gt_points[:, 1] < 7.5)
                     p_mask = (points[:, 0] > 0) & (points[:, 0] < 15) & (points[:, 1] > -7.5) & (points[:, 1] < 7.5)
 
-                    f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(200, 200))
+                    masked_voxel_coors = result["masked_voxel_coors"]
+                    masked_voxel_coors_set = {(m[3], m[2]) for m in masked_voxel_coors} #(x,y) pairs
+                    unmasked_voxel_coors = result["unmasked_voxel_coors"]
+                    unmasked_voxel_coors_set = {(int(m[3]), int(m[2])) for m in unmasked_voxel_coors} #(x,y) pairs
+                    voxel_offset = np.array(result["voxel_offset"])
+                    voxel_shape = np.array(result["voxel_shape"])
+                    points_voxel_idx = (points[:,:2] - voxel_offset[:2] + voxel_shape[:2]/2)//voxel_shape[:2]
+                    gt_points_voxel_idx = (gt_points[:,:2] - voxel_offset[:2] + voxel_shape[:2]/2)//voxel_shape[:2]
+                    unmasked_gt_point_mask = np.array([True if (int(idx[0]), int(idx[1])) in unmasked_voxel_coors_set else False for idx in gt_points_voxel_idx])
+
+
+                    path="/mimer/NOBACKUP/groups/snic2021-7-127/eliassv/jobs/figs_all_points/099"
+                    
+
+
+                    f, ax1 = plt.subplots(1, 1, figsize=(100, 100))
                     ax1.scatter(gt_points[:, 0], gt_points[:, 1], s=60, c=gt_color, label="GT")
                     ax1.set_title("Ground truth")
                     ax1.set_xticks(xticks_large)
                     ax1.set_yticks(yticks_large)
+                    ax1.set_xlim([-50, 50])
+                    ax1.set_ylim([-50, 50])
                     ax1.grid()
-                    ax2.scatter(points[:, 0], points[:, 1], s=60, c=color, label="Predicted")
-                    ax2.set_title("Predicted")
+                    fig_path = osp.join(path, f"gt_points_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
+
+                    f, ax2 = plt.subplots(1, 1, figsize=(100, 100))
+                    ax2.scatter(gt_points[unmasked_gt_point_mask][:, 0], gt_points[unmasked_gt_point_mask][:, 1], s=60, c=gt_color[unmasked_gt_point_mask], label="GT")
+                    ax2.set_title("Input")
                     ax2.set_xticks(xticks_large)
                     ax2.set_yticks(yticks_large)
+                    ax2.set_xlim([-50, 50])
+                    ax2.set_ylim([-50, 50])
                     ax2.grid()
-                    ax3.scatter(gt_points[gt_mask][:, 0], gt_points[gt_mask][:, 1], s=45*45, c=gt_color[gt_mask], label="GT")
-                    ax3.set_title("Ground truth")
-                    ax3.set_xticks(xticks_small, xlabels)
-                    ax3.set_yticks(yticks_small, ylabels)
+                    fig_path = osp.join(path, f"input_points_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
+
+                    f, ax3 = plt.subplots(1, 1, figsize=(100, 100))
+                    ax3.scatter(points[:, 0], points[:, 1], s=60, c=color, label="Predicted")
+                    ax3.set_title("Predicted")
+                    ax3.set_xticks(xticks_large)
+                    ax3.set_yticks(yticks_large)
+                    ax3.set_xlim([-50, 50])
+                    ax3.set_ylim([-50, 50])
                     ax3.grid()
-                    ax4.scatter(points[p_mask][:, 0], points[p_mask][:, 1], s=45*45, c=color[p_mask], label="Predicted")
-                    ax4.set_title("Predicted")
+                    fig_path = osp.join(path, f"predicted_points_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
+
+                    f, ax4 = plt.subplots(1, 1, figsize=(100, 100))
+                    ax4.scatter(gt_points[gt_mask][:, 0], gt_points[gt_mask][:, 1], s=45*45, c=gt_color[gt_mask], label="GT")
+                    ax4.set_title("Ground truth")
                     ax4.set_xticks(xticks_small, xlabels)
                     ax4.set_yticks(yticks_small, ylabels)
+                    ax4.set_xlim([0, 15])
+                    ax4.set_ylim([-7.5, 7.5])
                     ax4.grid()
-                    f.suptitle(f"Predicted point locations, Datapoint {i}, batch {b}")
-                    plt.savefig(f"chamf_points_bev{i}_{b}.png")
-                    plt.close()"""
+                    fig_path = osp.join(path, f"gt_points_zoom_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
+                    
+                    f, ax5 = plt.subplots(1, 1, figsize=(100, 100))
+                    gt_mask2 = unmasked_gt_point_mask & gt_mask
+                    ax5.scatter(gt_points[gt_mask2][:, 0], gt_points[gt_mask2][:, 1], s=45*45, c=gt_color[gt_mask2], label="GT")
+                    ax5.set_title("Input")
+                    ax5.set_xticks(xticks_small, xlabels)
+                    ax5.set_yticks(yticks_small, ylabels)
+                    ax5.set_xlim([0, 15])
+                    ax5.set_ylim([-7.5, 7.5])
+                    ax5.grid()
+                    fig_path = osp.join(path, f"input_points_zoom_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
+
+                    f, ax6 = plt.subplots(1, 1, figsize=(100, 100))
+                    ax6.scatter(points[p_mask][:, 0], points[p_mask][:, 1], s=45*45, c=color[p_mask], label="Predicted")
+                    ax6.set_title("Predicted")
+                    ax6.set_xticks(xticks_small, xlabels)
+                    ax6.set_yticks(yticks_small, ylabels)
+                    ax6.set_xlim([0, 15])
+                    ax6.set_ylim([-7.5, 7.5])
+                    ax6.grid()
+                    #f.suptitle(f"Predicted point locations, Datapoint {i}, batch {b}")
+                    #path="/mimer/NOBACKUP/groups/snic2021-7-127/eliassv/jobs/figs"
+                    fig_path = osp.join(path, f"predicted_points_zoom_bev{i}_{b}.pdf")
+                    plt.savefig(fig_path)
+                    plt.close()
 
         results.extend(result)
 
