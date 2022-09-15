@@ -78,14 +78,14 @@ class SSTv2Decoder(SSTv2):
 
         # if in_channel project encoder output to right dimension
         if hasattr(self, 'enc2dec_projection'):
-            encoder_out = self.enc2dec_projection(encoder_out)
+            encoder_out = self.enc2dec_projection(encoder_out).float()
 
         # replace unmasked voxels with encoder value
         dec2enc_idx = voxel_info_decoder["dec2enc_idx"]
         voxel_feat = voxel_info_decoder['voxel_feats']
         voxel_feat[dec2enc_idx] = encoder_out
-        assert torch.allclose(voxel_info_decoder['voxel_coors'][dec2enc_idx], voxel_info_encoder["voxel_coors"]), \
-            "Mapping dec2enc not valid"
+        #assert torch.allclose(voxel_info_decoder['voxel_coors'][dec2enc_idx], voxel_info_encoder["voxel_coors"]), \
+        #    "Mapping dec2enc not valid"
 
         # replace masked voxels with masking token
         dec2masked_idx = voxel_info_decoder["dec2masked_idx"]

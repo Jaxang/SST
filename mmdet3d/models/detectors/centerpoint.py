@@ -3,6 +3,7 @@ import torch
 from mmdet3d.core import bbox3d2result, merge_aug_bboxes_3d
 from mmdet.models import DETECTORS
 from .mvx_two_stage import MVXTwoStageDetector
+from .. import builder
 
 
 @DETECTORS.register_module()
@@ -24,13 +25,18 @@ class CenterPoint(MVXTwoStageDetector):
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None,
-                 init_cfg=None):
+                 init_cfg=None,
+                 decoder=None,):
         super(CenterPoint,
               self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
                              img_backbone, pts_backbone, img_neck, pts_neck,
                              pts_bbox_head, img_roi_head, img_rpn_head,
                              train_cfg, test_cfg, pretrained, init_cfg)
+
+        if decoder:
+            self.decoder = builder.build_neck(decoder)
+        
 
     def extract_pts_feat(self, pts, img_feats, img_metas):
         """Extract features of points."""
@@ -40,10 +46,17 @@ class CenterPoint(MVXTwoStageDetector):
 
         voxel_features = self.pts_voxel_encoder(voxels, num_points, coors)
         batch_size = coors[-1, 0] + 1
-        x = self.pts_middle_encoder(voxel_features, coors, batch_size)
+        if hasattr(self.pts_middle_encoder, 'masked') and self.pts_middle_encoder.masked:
+            x, voxel_info = self.pts_middle_encoder(voxel_features, coors, batch_size, voxels, num_points)
+        else:
+            x = self.pts_middle_encoder(voxel_features, coors, batch_size)
+
         x = self.pts_backbone(x)
         if self.with_pts_neck:
             x = self.pts_neck(x)
+        if self.with_decoder:
+            voxel_info["output"] = torch.cat([x[0][b_i, :, y_i, x_i].unsqueeze(0) for (b_i, _, y_i, x_i) in self.pts_middle_encoder.get_voxel_coors(voxel_info["voxel_info_decoder"]["unmasked_idx"]).long()], dim=0).float()
+            x = self.decoder(voxel_info)
         return x
 
     def forward_pts_train(self,
@@ -68,7 +81,10 @@ class CenterPoint(MVXTwoStageDetector):
             dict: Losses of each branch.
         """
         outs = self.pts_bbox_head(pts_feats)
-        loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]
+        if self.with_decoder:
+            loss_inputs = [outs, gt_bboxes_3d, gt_labels_3d]
+        else:
+            loss_inputs = [gt_bboxes_3d, gt_labels_3d, outs]
         losses = self.pts_bbox_head.loss(*loss_inputs)
         return losses
 
@@ -192,3 +208,9 @@ class CenterPoint(MVXTwoStageDetector):
             pts_bbox = self.aug_test_pts(pts_feats, img_metas, rescale)
             bbox_list.update(pts_bbox=pts_bbox)
         return [bbox_list]
+
+    @property
+    def with_decoder(self):
+        """bool: Whether the detector has a 2D image box head."""
+        return hasattr(self,
+                       'decoder') and self.decoder is not None

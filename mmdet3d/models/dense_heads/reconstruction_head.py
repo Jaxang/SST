@@ -117,7 +117,7 @@ class ReconstructionHead(BaseModule):
             gt_occupied = gt_dict["fake_voxel_mask"]
             gt_occupied = gt_occupied[voxel_info_decoder["original_index"]]  # Maps the input to decoder output index
             pred_dict["pred_occupied"] = pred_occupied
-            pred_dict["gt_occupied"] = gt_occupied
+            pred_dict["gt_occupied"] = gt_occupied.float()
 
         # Predict number of points loss
         if self.use_num_points:
@@ -214,7 +214,7 @@ class ReconstructionHead(BaseModule):
         trg_padding_expand = trg_padding.unsqueeze(1).repeat(1, src.shape[1], 1)  # (B,N M)
 
         distance = criterion(src_expand, trg_expand, reduction='none').sum(-1)  # (B,N M)
-        distance[trg_padding_expand] = torch.inf
+        distance[trg_padding_expand] = float("inf")
 
         src2trg_distance, indices1 = torch.min(distance, dim=2)  # (B,N)
         trg2src_distance, indices2 = torch.min(distance, dim=1)  # (B,M)
@@ -232,7 +232,7 @@ class ReconstructionHead(BaseModule):
              pred_dict,
              gt_bboxes,
              gt_labels,
-             input_metas,
+             input_metas=None,
              gt_bboxes_ignore=None,
              ):
         """Calculate losses.
@@ -259,6 +259,8 @@ class ReconstructionHead(BaseModule):
                     losses.
         """
         loss_dict = {}
+        if not type(pred_dict) is dict:
+            pred_dict = pred_dict[0]
 
         if self.use_fake_voxels:
             pred_occupied = pred_dict["pred_occupied"]

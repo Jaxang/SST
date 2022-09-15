@@ -1,4 +1,4 @@
-lr=1e-5
+lr=1e-5 #1e-4
 optimizer = dict(
     type='AdamW',
     lr=lr,
@@ -9,9 +9,13 @@ optimizer = dict(
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
 lr_config = dict(
     policy='cyclic',
-    target_ratio=(100, 1e-3),
+    target_ratio=(10, 1e-3), #100, 1e-3
     cyclic_times=1,
     step_ratio_up=0.1,
 )
-momentum_config = None
+momentum_config = None # dict(
+    #policy='cyclic',
+    #target_ratio=(0.8947368421052632, 1),
+    #cyclic_times=1,
+    #step_ratio_up=0.1)
 runner = dict(type='EpochBasedRunner', max_epochs=24)
