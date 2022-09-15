@@ -103,7 +103,8 @@ def main():
     args.show_dir="./figs"
     args.show_pretrain=True
     args.config = "/cephyr/NOBACKUP/groups/snic2021-7-127/eliassv/SST_A40/configs/sst_masked/sst_nuscenes_vZoeeeing_2sweeps-remove_close-cpf-scaled_masked_200e_ED8.py"
-    args.checkpoint = "/mimer/NOBACKUP/groups/snic2021-7-127/eliassv//jobs/287775/epoch_200.pth"
+    args.checkpoint = "/mimer/NOBACKUP/groups/snic2021-7-127/eliassv/jobs/287775/epoch_200.pth"
+    masking_ratio = 0.99
     """args.show = False
     args.eval = 'mAP'
     args.eval_options='show=True'
@@ -120,6 +121,9 @@ def main():
     if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
         raise ValueError('The output file must be a pkl file.')
     cfg = Config.fromfile(args.config)
+    cfg.masking_ratio = masking_ratio
+    cfg.model.middle_encoder.masking_ratio = masking_ratio
+    cfg.model.bbox_head.only_masked = False
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
     # import modules from string list.
