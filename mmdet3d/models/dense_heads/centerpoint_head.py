@@ -406,7 +406,7 @@ class CenterHead(BaseModule):
             self.get_targets_single, gt_bboxes_3d, gt_labels_3d)
         # transpose heatmaps, because the dimension of tensors in each task is
         # different, we have to use numpy instead of torch to do the transpose.
-        heatmaps = np.array(heatmaps).transpose(1, 0).tolist()
+        heatmaps = list(map(list, zip(*heatmaps)))
         heatmaps = [torch.stack(hms_) for hms_ in heatmaps]
         # transpose anno_boxes
         anno_boxes = np.array(anno_boxes).transpose(1, 0).tolist()
