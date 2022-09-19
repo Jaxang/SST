@@ -47,7 +47,8 @@ class ReconstructionHead(BaseModule):
                  use_chamfer=True,
                  use_num_points=True,
                  use_fake_voxels=True,
-                 init_cfg=None):
+                 init_cfg=None,
+                 max_num_gt_points=100,):
         super().__init__(init_cfg=init_cfg)
         self.in_channels = in_channels
         self.feat_channels = feat_channels
@@ -56,6 +57,8 @@ class ReconstructionHead(BaseModule):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.fp16_enabled = False
+        assert max_num_gt_points > 0
+        self.max_num_gt_points = max_num_gt_points
 
         # build loss function
         self.only_masked = only_masked
@@ -223,7 +226,7 @@ class ReconstructionHead(BaseModule):
         loss_src = torch.mean(src2trg_distance)
         # Since there is different number of points in each voxel we want to have each voxel matter equally much
         # and to not have voxels with more points be more important to mimic
-        loss_trg = trg2src_distance.sum(1) / (~trg_padding).sum(1)  # B
+        loss_trg = trg2src_distance.sum(1) / ((~trg_padding).sum(1)+1e-6)  # B
         loss_trg = loss_trg.mean()
 
         return loss_src, loss_trg
@@ -270,8 +273,9 @@ class ReconstructionHead(BaseModule):
 
         if self.use_num_points:
             pred_num_points_masked = pred_dict["pred_num_points_masked"]
-            gt_num_points_masked = pred_dict["gt_num_points_masked"]
-            loss_num_points_masked = self.num_points_loss(pred_num_points_masked, gt_num_points_masked.float())
+            gt_num_points_masked = pred_dict["gt_num_points_masked"].float()
+            gt_num_points_masked = gt_num_points_masked/self.max_num_gt_points-0.5
+            loss_num_points_masked = self.num_points_loss(pred_num_points_masked, gt_num_points_masked)
             loss_dict["loss_num_points_masked"] = loss_num_points_masked
             if not self.only_masked:
                 pred_num_points_unmasked = pred_dict["pred_num_points_unmasked"]

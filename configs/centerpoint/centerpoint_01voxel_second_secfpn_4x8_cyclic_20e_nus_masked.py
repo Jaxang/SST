@@ -14,6 +14,7 @@ loss_weights = dict(
     loss_chamfer_src_unmasked=0.,
     loss_chamfer_dst_unmasked=0.
 )
+max_num_gt_points = 100
 
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.1, 0.1, 0.2]
@@ -57,7 +58,7 @@ model = dict(
         normalize_pos=False,
         mute=True,
         masking_ratio=masking_ratio,
-        drop_points_th=100,
+        drop_points_th=max_num_gt_points,
         pred_dims=3,  # x, y, z
         use_chamfer=use_chamfer,
         use_num_points=use_num_points,
@@ -91,6 +92,7 @@ model = dict(
         use_chamfer=use_chamfer,
         use_num_points=use_num_points,
         use_fake_voxels=use_fake_voxels,
+        max_num_gt_points=max_num_gt_points,
     )
 )
 
