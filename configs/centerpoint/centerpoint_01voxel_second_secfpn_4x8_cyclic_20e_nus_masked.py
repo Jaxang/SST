@@ -1,5 +1,6 @@
 _base_ = [
-    '../centerpoint/centerpoint_01voxel_second_secfpn_4x8_cyclic_20e_nus.py'
+    '../centerpoint/centerpoint_01voxel_second_secfpn_4x8_cyclic_20e_nus.py', 
+    '../_base_/datasets/nus-3d-remove_close.py'
 ]
 use_chamfer, use_num_points, use_fake_voxels = True, True, True
 relative_error = False
@@ -7,7 +8,7 @@ masking_ratio = 0.7
 fake_voxels_ratio = 0.1
 loss_weights = dict(
     loss_occupied=1.0,
-    loss_num_points_masked=1.,
+    loss_num_points_masked=0.4, #new voxel size, new weight -> (0.5^2)/(0.8^2) 
     loss_chamfer_src_masked=1.,
     loss_chamfer_dst_masked=1.,
     loss_num_points_unmasked=0.,
@@ -17,7 +18,7 @@ loss_weights = dict(
 
 point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.1, 0.1, 0.2]
-window_shape = (8, 8, 4) # 12 * 0.32m
+window_shape = (10, 10, 1) # 12 * 0.32m
 drop_info_training = {
     0: {'max_tokens': 30, 'drop_range': (0, 30)},
     1: {'max_tokens': 60, 'drop_range': (30, 60)},
@@ -70,7 +71,7 @@ model = dict(
         type='SSTv2Decoder',
         d_model=[128, ] * 2,
         nhead=[8, ] * 2,
-        num_blocks=2,
+        num_blocks = 2,
         dim_feedforward=[256, ] * 2,
         output_shape=[128, 128],
         debug=False,
@@ -83,7 +84,7 @@ model = dict(
         type='ReconstructionHead',
         in_channels=128,
         feat_channels=128,
-        num_chamfer_points=10,
+        num_chamfer_points=10, #new voxel size -> (0.8^2)/(0.5^2)
         pred_dims=3,
         only_masked=True,
         relative_error=relative_error,
@@ -94,37 +95,32 @@ model = dict(
     )
 )
 
-
-# This schedule is mainly used by models with dynamic voxelization
-# optimizer
-lr = 0.0005  # max learning rate
-optimizer = dict(
-    _delete_=True,
-    type='AdamW',
-    lr=lr,
-    betas=(0.95, 0.99),  # the momentum is change during training
-    weight_decay=0.001)
-optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
-
-lr_config = dict(
-    _delete_=True,
-    policy='CosineAnnealing',
-    warmup='linear',
-    warmup_iters=1000,
-    warmup_ratio=1.0 / 10,
-    min_lr_ratio=1e-7)
-
-momentum_config = None
-
 # runtime settings
-epochs = 200
+epochs = 24
 runner = dict(type='EpochBasedRunner', max_epochs=epochs)
 evaluation = dict(interval=epochs+1)  # Don't evaluate when doing pretraining
 workflow = [("train", 1), ("val", 1)]  # But calculate val loss after each epoch
-checkpoint_config = dict(interval=20)
+checkpoint_config = dict(interval=2)
 
 fp16 = dict(loss_scale=32.0)
 data = dict(
-    samples_per_gpu=1,
-    workers_per_gpu=1,
+    samples_per_gpu=8,
+    workers_per_gpu=4,
+)
+
+optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
+optimizer = dict(_delete_=True, type='AdamW', lr=1e-4, weight_decay=0.01)
+lr_config = dict(
+    _delete_=True,
+    policy='cyclic',
+    target_ratio=(10, 1e-4),
+    cyclic_times=1,
+    step_ratio_up=0.4,
+)
+momentum_config = dict(
+    _delete_=True,
+    policy='cyclic',
+    target_ratio=(0.85 / 0.95, 1),
+    cyclic_times=1,
+    step_ratio_up=0.4,
 )
