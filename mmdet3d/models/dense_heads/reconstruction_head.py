@@ -89,6 +89,7 @@ class ReconstructionHead(BaseModule):
         self.conv_chamfer = nn.Conv1d(self.feat_channels, self.num_chamfer_points * self.pred_dims, 1) \
             if self.use_chamfer else None
 
+    @force_fp32()
     def _apply_1dconv(self, conv, x):
         if conv is not None:
             x = x.unsqueeze(0).transpose(1, 2)
@@ -269,6 +270,12 @@ class ReconstructionHead(BaseModule):
             pred_occupied = pred_dict["pred_occupied"]
             gt_occupied = pred_dict["gt_occupied"]
             loss_occupied = binary_cross_entropy_with_logits(pred_occupied, gt_occupied)
+            if ~torch.isfinite(loss_occupied):
+                print("pred_occupied")
+                print(pred_occupied)
+                print("gt_occupied")
+                print(gt_occupied)
+
             loss_dict["loss_occupied"] = loss_occupied
 
         if self.use_num_points:
@@ -276,6 +283,11 @@ class ReconstructionHead(BaseModule):
             gt_num_points_masked = pred_dict["gt_num_points_masked"].float()
             gt_num_points_masked = gt_num_points_masked/self.max_num_gt_points-0.5
             loss_num_points_masked = self.num_points_loss(pred_num_points_masked, gt_num_points_masked)
+            if ~torch.isfinite(loss_occupied):
+                print("pred_num_points_masked")
+                print(pred_num_points_masked)
+                print("gt_num_points_masked")
+                print(gt_num_points_masked)
             loss_dict["loss_num_points_masked"] = loss_num_points_masked
             if not self.only_masked:
                 pred_num_points_unmasked = pred_dict["pred_num_points_unmasked"]
