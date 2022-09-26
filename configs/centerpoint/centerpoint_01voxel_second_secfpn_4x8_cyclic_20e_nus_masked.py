@@ -78,6 +78,9 @@ model = dict(
         debug=False,
         use_fake_voxels=use_fake_voxels,
         in_channel=512,
+        layer_cfg=dict(
+            post_norm=False,
+        )
     ),
 
     pts_bbox_head=dict(
