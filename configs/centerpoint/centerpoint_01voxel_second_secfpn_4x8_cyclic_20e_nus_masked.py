@@ -1,6 +1,5 @@
 _base_ = [
-    '../centerpoint/centerpoint_01voxel_second_secfpn_4x8_cyclic_20e_nus.py', 
-    '../_base_/datasets/nus-3d-remove_close.py'
+    '../centerpoint/centerpoint_01voxel_second_secfpn_4x8_cyclic_20e_nus.py'
 ]
 use_chamfer, use_num_points, use_fake_voxels = True, True, True
 relative_error = False
@@ -8,7 +7,7 @@ masking_ratio = 0.7
 fake_voxels_ratio = 0.1
 loss_weights = dict(
     loss_occupied=1.0,
-    loss_num_points_masked=0.4, #new voxel size, new weight -> (0.5^2)/(0.8^2) 
+    loss_num_points_masked=1., #new voxel size, new weight -> (0.5^2)/(0.8^2) 
     loss_chamfer_src_masked=1.,
     loss_chamfer_dst_masked=1.,
     loss_num_points_unmasked=0.,
@@ -21,11 +20,11 @@ point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
 voxel_size = [0.1, 0.1, 0.2]
 window_shape = (10, 10, 1) # 12 * 0.32m
 drop_info_training = {
-    0: {'max_tokens': 30, 'drop_range': (0, 30)},
-    1: {'max_tokens': 60, 'drop_range': (30, 60)},
-    2: {'max_tokens': 100, 'drop_range': (60, 100)},
-    3: {'max_tokens': 200, 'drop_range': (100, 200)},
-    4: {'max_tokens': 256, 'drop_range': (200, 100000)},
+    0: {'max_tokens': 10, 'drop_range': (0, 10)},
+    1: {'max_tokens': 20, 'drop_range': (10, 20)},
+    2: {'max_tokens': 30, 'drop_range': (20, 30)},
+    3: {'max_tokens': 50, 'drop_range': (30, 50)},
+    4: {'max_tokens': 100, 'drop_range': (50, 100000)},
 }
 drop_info_test = {
     0: {'max_tokens': 30, 'drop_range': (0, 30)},
@@ -89,7 +88,7 @@ model = dict(
         type='ReconstructionHead',
         in_channels=128,
         feat_channels=128,
-        num_chamfer_points=10, #new voxel size -> (0.8^2)/(0.5^2)
+        num_chamfer_points=26, #new voxel size -> (0.8^2)/(0.5^2)
         pred_dims=3,
         only_masked=True,
         relative_error=relative_error,
@@ -102,7 +101,7 @@ model = dict(
 )
 
 # runtime settings
-epochs = 24
+epochs = 20
 runner = dict(type='EpochBasedRunner', max_epochs=epochs)
 evaluation = dict(interval=epochs+1)  # Don't evaluate when doing pretraining
 workflow = [("train", 1), ("val", 1)]  # But calculate val loss after each epoch
@@ -110,7 +109,7 @@ checkpoint_config = dict(interval=2)
 
 fp16 = dict(loss_scale=32.0)
 data = dict(
-    samples_per_gpu=8,
+    samples_per_gpu=4,
     workers_per_gpu=4,
 )
 
