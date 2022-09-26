@@ -56,7 +56,6 @@ class ReconstructionHead(BaseModule):
         self.pred_dims = pred_dims
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        self.fp16_enabled = False
         assert max_num_gt_points > 0
         self.max_num_gt_points = max_num_gt_points
 
