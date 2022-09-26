@@ -43,6 +43,7 @@ class SSTv2Decoder(SSTv2):
         checkpoint_blocks=[],
         layer_cfg=dict(),
         use_fake_voxels=True,
+        normalize_input=False,
         ):
 
         super().__init__(
@@ -66,6 +67,10 @@ class SSTv2Decoder(SSTv2):
         self.use_fake_voxels = use_fake_voxels
         self.mask_token = nn.Parameter(torch.zeros(1, d_model[0]))
         torch.nn.init.normal_(self.mask_token, std=.02)
+        if normalize_input:
+            self.norm = nn.LayerNorm(d_model[0])
+        else:
+            self.norm = None
 
     def forward(self, voxel_info):
         '''
@@ -98,6 +103,10 @@ class SSTv2Decoder(SSTv2):
             n_fake = voxel_info_decoder["n_fake"]
             masked_tokens = self.mask_token.repeat(n_fake, 1)
             voxel_feat[dec2fake_idx] = masked_tokens
+
+        if self.norm is not None:
+            voxel_feat = self.norm(voxel_feat)
+
         voxel_info_decoder['voxel_feats'] = voxel_feat
 
         if self.debug:
