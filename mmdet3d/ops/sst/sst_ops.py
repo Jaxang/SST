@@ -20,7 +20,7 @@ def scatter_nd(indices, updates, shape):
     return ret
 
 @torch.no_grad()
-def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info, debug=True):
+def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info, debug=False):
     '''
     Args:
         batch_win_inds: shape=[N, ]. Indicates which window a voxel belongs to. Window inds is unique is the whole batch.
@@ -129,7 +129,7 @@ def window2flat(feat_3d_dict, inds_dict):
     
     return all_flat_feat
 
-def get_flat2win_inds_v2(batch_win_inds, voxel_drop_lvl, drop_info, debug=True):
+def get_flat2win_inds_v2(batch_win_inds, voxel_drop_lvl, drop_info, debug=False):
     transform_dict = get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info, debug)
     # add voxel_drop_lvl and batching_info into transform_dict for better wrapping
     transform_dict['voxel_drop_level'] = voxel_drop_lvl
@@ -148,7 +148,7 @@ def flat2window_v2(feat, inds_dict):
 
 
 @torch.no_grad()
-def get_inner_win_inds(win_inds):
+def get_inner_win_inds(win_inds, debug=False):
     '''
     Args:
         win_inds indicates which windows a voxel belongs to. Voxels share a window have same inds.
@@ -183,22 +183,23 @@ def get_inner_win_inds(win_inds):
     inner_inds_reorder[order] = inner_inds
 
     ##sanity check
-    assert (inner_inds >= 0).all()
-    assert (inner_inds == 0).sum() == len(unique_sort_inds)
-    assert (num_tokens_each_win > 0).all()
-    random_win = unique_sort_inds[random.randint(0, len(unique_sort_inds)-1)]
-    random_mask = win_inds == random_win
-    num_voxel_this_win = bincount[random_win].item()
-    random_inner_inds = inner_inds_reorder[random_mask] 
+    if debug:
+        assert (inner_inds >= 0).all()
+        assert (inner_inds == 0).sum() == len(unique_sort_inds)
+        assert (num_tokens_each_win > 0).all()
+        random_win = unique_sort_inds[random.randint(0, len(unique_sort_inds)-1)]
+        random_mask = win_inds == random_win
+        num_voxel_this_win = bincount[random_win].item()
+        random_inner_inds = inner_inds_reorder[random_mask] 
 
-    assert len(torch.unique(random_inner_inds)) == num_voxel_this_win
-    assert random_inner_inds.max() == num_voxel_this_win - 1
-    assert random_inner_inds.min() == 0
+        assert len(torch.unique(random_inner_inds)) == num_voxel_this_win
+        assert random_inner_inds.max() == num_voxel_this_win - 1
+        assert random_inner_inds.min() == 0
 
     return inner_inds_reorder
 
 @torch.no_grad()
-def get_window_coors(coors, sparse_shape, window_shape, do_shift):
+def get_window_coors(coors, sparse_shape, window_shape, do_shift, debug=False):
 
     if len(window_shape) == 2:
         win_shape_x, win_shape_y = window_shape
@@ -232,7 +233,7 @@ def get_window_coors(coors, sparse_shape, window_shape, do_shift):
     win_coors_y = shifted_coors_y // win_shape_y
     win_coors_z = shifted_coors_z // win_shape_z
 
-    if len(window_shape) == 2:
+    if len(window_shape) == 2 and debug:
         assert (win_coors_z == 0).all()
 
     # Divide each window into its own 'batch'
@@ -506,11 +507,12 @@ class SRATensor(object):
 
             flat2window_inds_dict[dl] = (flat2window_inds, torch.where(dl_mask))
 
-            assert inner_win_inds.max() < max_tokens, f'Max inner inds({inner_win_inds.max()}) larger(equal) than {max_tokens}'
-            assert (flat2window_inds >= 0).all()
-            max_ind = flat2window_inds.max().item()
-            assert  max_ind < num_windows * max_tokens, f'max_ind({max_ind}) larger than upper bound({num_windows * max_tokens})'
-            assert  max_ind >= (num_windows-1) * max_tokens, f'max_ind({max_ind}) less than lower bound({(num_windows-1) * max_tokens})'
+            if debug:
+                assert inner_win_inds.max() < max_tokens, f'Max inner inds({inner_win_inds.max()}) larger(equal) than {max_tokens}'
+                assert (flat2window_inds >= 0).all()
+                max_ind = flat2window_inds.max().item()
+                assert  max_ind < num_windows * max_tokens, f'max_ind({max_ind}) larger than upper bound({num_windows * max_tokens})'
+                assert  max_ind >= (num_windows-1) * max_tokens, f'max_ind({max_ind}) less than lower bound({(num_windows-1) * max_tokens})'
 
         return flat2window_inds_dict
 
@@ -568,7 +570,7 @@ class SRATensor(object):
         
         return batch_win_inds, coors_in_win
 
-    def drop_single_shift(self, batch_win_inds, drop_info):
+    def drop_single_shift(self, batch_win_inds, drop_info, debug=False):
         drop_lvl_per_voxel = -torch.ones_like(batch_win_inds)
         inner_win_inds = get_inner_win_inds(batch_win_inds)
         bincount = torch.bincount(batch_win_inds)
@@ -582,8 +584,9 @@ class SRATensor(object):
             target_num_per_voxel[range_mask] = max_tokens
             drop_lvl_per_voxel[range_mask] = dl
         
-        assert (target_num_per_voxel > 0).all()
-        assert (drop_lvl_per_voxel >= 0).all()
+        if debug:
+            assert (target_num_per_voxel > 0).all()
+            assert (drop_lvl_per_voxel >= 0).all()
 
         keep_mask = inner_win_inds < target_num_per_voxel
         return keep_mask, drop_lvl_per_voxel
@@ -668,7 +671,7 @@ class SRATensor(object):
         assert do_shift == self.shifted
         return self.get_reuse(self.key, self.shifted, 'pos', False)
 
-    def get_pos_embed(self, transform_info, coors_in_win, voxel_drop_level, batching_info, d_model, pos_temperature, dtype):
+    def get_pos_embed(self, transform_info, coors_in_win, voxel_drop_level, batching_info, d_model, pos_temperature, dtype, debug=False):
         '''
         '''
         # [N,]
@@ -676,8 +679,9 @@ class SRATensor(object):
         win_x, win_y, win_z = self.window_shape
 
         x, y = coors_in_win[:, 0] - win_x/2, coors_in_win[:, 1] - win_y/2
-        assert (x >= -win_x/2 - 1e-4).all()
-        assert (x <= win_x/2-1 + 1e-4).all()
+        if debug:
+            assert (x >= -win_x/2 - 1e-4).all()
+            assert (x <= win_x/2-1 + 1e-4).all()
 
         # if self.normalize_pos:
         #     x = x / win_x * 2 * 3.1415 #[-pi, pi]

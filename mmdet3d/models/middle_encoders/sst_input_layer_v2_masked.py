@@ -204,11 +204,12 @@ class SSTInputLayerV2Masked(SSTInputLayerV2):
             point_indices_unique = n_points_per_voxel_with_zeros.nonzero().ravel()
             n_points_per_voxel = n_points_per_voxel_with_zeros[voxel_indices]
             gt_dict["num_points_per_voxel"] = n_points_per_voxel
-            assert (n_points_per_voxel > 0).all(), "Exists voxel without connected points"
-            assert len(point_indices_unique) == len(voxel_indices), \
-                "There is a mismatch between point indices and voxel indices"
-            assert (point_indices_unique == voxel_indices.sort()[0]).all(), \
-                "There is a mismatch between point indices and voxel indices"
+            if self.debug:
+                assert (n_points_per_voxel > 0).all(), "Exists voxel without connected points"
+                assert len(point_indices_unique) == len(voxel_indices), \
+                    "There is a mismatch between point indices and voxel indices"
+                assert (point_indices_unique == voxel_indices.sort()[0]).all(), \
+                    "There is a mismatch between point indices and voxel indices"
 
         # Get points per voxel
         if self.use_chamfer:
@@ -220,7 +221,7 @@ class SSTInputLayerV2Masked(SSTInputLayerV2):
 
             shuffle = torch.argsort(torch.rand(len(point_indices)))  # Shuffle to drop random points
             restore = torch.argsort(shuffle)
-            inner_voxel_inds = get_inner_win_inds(point_indices[shuffle])[restore]  # fixes one index per point per voxel
+            inner_voxel_inds = get_inner_win_inds(point_indices[shuffle], self.debug)[restore]  # fixes one index per point per voxel
             drop_mask = inner_voxel_inds < self.drop_points_th
 
             points_rel_center = points_rel_center[drop_mask]
@@ -241,10 +242,11 @@ class SSTInputLayerV2Masked(SSTInputLayerV2):
         if self.use_chamfer and self.use_num_points:
             test_mask = n_points_per_voxel < self.drop_points_th
             _n_points_per_voxel = (1-gt_dict["points_per_voxel_padding"]).sum(1)
-            assert (_n_points_per_voxel[test_mask] == n_points_per_voxel[test_mask]).all(), \
-                "Mismatch between counted points per voxel and found points per voxel"
-            assert (_n_points_per_voxel[~test_mask] == self.drop_points_th).all(), \
-                "Error when dropping points for voxels with to many points"
+            if self.debug:
+                assert (_n_points_per_voxel[test_mask] == n_points_per_voxel[test_mask]).all(), \
+                    "Mismatch between counted points per voxel and found points per voxel"
+                assert (_n_points_per_voxel[~test_mask] == self.drop_points_th).all(), \
+                    "Error when dropping points for voxels with to many points"
 
         # TODO: Potentially add fake voxels
         fake_voxel_coors = None

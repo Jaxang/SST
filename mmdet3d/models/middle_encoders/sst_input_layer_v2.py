@@ -111,7 +111,7 @@ class SSTInputLayerV2(nn.Module):
     def drop_single_shift(self, batch_win_inds):
         drop_info = self.drop_info
         drop_lvl_per_voxel = -torch.ones_like(batch_win_inds)
-        inner_win_inds = get_inner_win_inds(batch_win_inds)
+        inner_win_inds = get_inner_win_inds(batch_win_inds, self.debug)
         bincount = torch.bincount(batch_win_inds)
         num_per_voxel_before_drop = bincount[batch_win_inds] #
         target_num_per_voxel = torch.zeros_like(batch_win_inds)
@@ -249,8 +249,9 @@ class SSTInputLayerV2(nn.Module):
 
         assert coors_in_win.size(1) == 3
         z, y, x = coors_in_win[:, 0] - win_z/2, coors_in_win[:, 1] - win_y/2, coors_in_win[:, 2] - win_x/2
-        assert (x >= -win_x/2 - 1e-4).all()
-        assert (x <= win_x/2-1 + 1e-4).all()
+        if self.debug:
+            assert (x >= -win_x/2 - 1e-4).all()
+            assert (x <= win_x/2-1 + 1e-4).all()
 
         if self.normalize_pos:
             x = x / win_x * 2 * 3.1415 #[-pi, pi]

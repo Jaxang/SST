@@ -215,7 +215,7 @@ class SparseEncoderMasked(SSTInputLayerV2):
         non_padded_point_mask = voxels.abs().sum(dim=-1) != 0
         non_padded_points = voxels[non_padded_point_mask]
         non_padded_point_coors = point_coors[non_padded_point_mask]
-        non_padded_point_indices = point_indices[non_padded_point_mask]
+        #non_padded_point_indices = point_indices[non_padded_point_mask]
 
         # Reassign coors from small voxels to large voxels
         div = [
@@ -229,11 +229,11 @@ class SparseEncoderMasked(SSTInputLayerV2):
 
         big_voxel_idx = self.get_voxel_indices(big_voxel_coors)
         shuffle = torch.argsort(
-            torch.rand(len(big_voxel_idx))
+            torch.rand(len(big_voxel_idx), device=big_voxel_idx.device)
         )  # Shuffle to drop random points
         restore = torch.argsort(shuffle)
         # Assign a unique id to each point within a voxel
-        inner_coors = get_inner_win_inds(big_voxel_idx[shuffle])[restore]
+        inner_coors = get_inner_win_inds(big_voxel_idx[shuffle], self.debug)[restore]
 
         # Only keep up to self.drop_points_th points per voxel
         keep = inner_coors < self.drop_points_th
@@ -257,7 +257,8 @@ class SparseEncoderMasked(SSTInputLayerV2):
         # Points per voxel
         if self.use_num_points:
             gt_dict["num_points_per_voxel"] = points_per_voxel
-            assert (points_per_voxel > 0).all(), "Exists voxel without connected points"
+            if self.debug:
+                assert (points_per_voxel > 0).all(), "Exists voxel without connected points"
 
         # Get points per voxel
         if self.use_chamfer:
