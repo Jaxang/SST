@@ -402,8 +402,9 @@ class SparseEncoderMasked(SSTInputLayerV2):
                     [1] + div, device=voxel_coors.device
                 )
         voxel_coors_in_big_voxels = voxel_coors_in_big_voxels.int()
-        masked_idx = sum((voxel_coors_in_big_voxels==x).all(dim=-1) for x in big_voxel_coors[big_masked_idx]).nonzero().ravel()
-        unmasked_idx = sum((voxel_coors_in_big_voxels==x).all(dim=-1) for x in big_voxel_coors[big_unmasked_idx]).nonzero().ravel()
+        masked_mask = sum((voxel_coors_in_big_voxels==x).all(dim=-1) for x in big_voxel_coors[big_masked_idx])
+        masked_idx = masked_mask.nonzero().ravel()
+        unmasked_idx = (1-masked_mask).nonzero().ravel()
         n_masked_voxels, n_unmasked_voxels = len(masked_idx), len(unmasked_idx)
 
         unmasked_voxels = voxel_features[unmasked_idx]

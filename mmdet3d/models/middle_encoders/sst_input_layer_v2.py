@@ -69,7 +69,7 @@ class SSTInputLayerV2(nn.Module):
 
         if self.shuffle_voxels:
             # shuffle the voxels to make the drop process uniform.
-            shuffle_inds = torch.randperm(len(voxel_feats))
+            shuffle_inds = torch.randperm(len(voxel_feats), device=voxel_feats.device)
             voxel_feats = voxel_feats[shuffle_inds]
             voxel_coors = voxel_coors[shuffle_inds]
             original_index = original_index[shuffle_inds]
@@ -88,7 +88,7 @@ class SSTInputLayerV2(nn.Module):
             # Dict where for each drop level we give a index to each token
             # unique to all tokens in all windows of that drop level
             voxel_info[f'flat2win_inds_shift{i}'] = \
-                get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_drop_level_shift{i}'], self.drop_info, debug=True)
+                get_flat2win_inds_v2(voxel_info[f'batch_win_inds_shift{i}'], voxel_info[f'voxel_drop_level_shift{i}'], self.drop_info, debug=self.debug)
 
             # Same structure as above. Positional embedding is done using Sine-Cos embedding within a window, i.e.
             # not related to global position. Position in window is thus x_coord % windows_size_x and same for y
@@ -299,7 +299,7 @@ class SSTInputLayerV2(nn.Module):
     @torch.no_grad()
     def get_key_padding_mask(self, ind_dict):
         num_all_voxel = len(ind_dict['voxel_drop_level'])
-        key_padding = torch.ones((num_all_voxel, 1)).to(ind_dict['voxel_drop_level'].device).bool()
+        key_padding = torch.ones((num_all_voxel, 1), device=ind_dict['voxel_drop_level'].device).bool()
 
         window_key_padding_dict = flat2window_v2(key_padding, ind_dict)
 

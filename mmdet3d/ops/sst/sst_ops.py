@@ -41,12 +41,12 @@ def get_flat2win_inds(batch_win_inds, voxel_drop_lvl, drop_info, debug=False):
         if not dl_mask.any():
             continue
 
-        conti_win_inds = make_continuous_inds(batch_win_inds[dl_mask])
+        conti_win_inds = make_continuous_inds(batch_win_inds[dl_mask], debug)
 
         num_windows = len(torch.unique(conti_win_inds))
         max_tokens = drop_info[dl]['max_tokens']
 
-        inner_win_inds = get_inner_win_inds(conti_win_inds)  # When more give a index to each token in each window
+        inner_win_inds = get_inner_win_inds(conti_win_inds, debug)  # When more give a index to each token in each window
 
         # Gives a index to each token unique to all tokens in all windows
         flat2window_inds = conti_win_inds * max_tokens + inner_win_inds
@@ -251,7 +251,7 @@ def get_window_coors(coors, sparse_shape, window_shape, do_shift, debug=False):
     return batch_win_inds, coors_in_win
 
 @torch.no_grad()
-def make_continuous_inds(inds):
+def make_continuous_inds(inds, debug=False):
 
     ### make batch_win_inds continuous
     dtype = inds.dtype
@@ -264,9 +264,9 @@ def make_continuous_inds(inds):
     canvas[unique_inds] = torch.arange(num_valid_inds, dtype=dtype, device=device)
 
     conti_inds = canvas[inds]
-
-    assert conti_inds.max() == len(torch.unique(conti_inds)) - 1, 'Continuity check failed.'
-    assert conti_inds.min() == 0, '-1 in canvas should not be indexed.'
+    if debug:
+        assert conti_inds.max() == len(torch.unique(conti_inds)) - 1, 'Continuity check failed.'
+        assert conti_inds.min() == 0, '-1 in canvas should not be indexed.'
     return conti_inds
 
 class SRATensor(object):
