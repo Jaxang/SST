@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH -A SNIC2022-5-184 -p alvis
-#SBATCH -t 0-16:00:00
+#SBATCH -t 1-04:00:00
 #SBATCH --gpus-per-node=A40:4
 #SBATCH -N 1
 #SBATCH --output=/mimer/NOBACKUP/groups/snic2021-7-127/eliassv/slurm-out/slurm-%j.out
@@ -34,9 +34,11 @@ echo ""
 echo "Start copying repo to '$TMPDIR'"
 if [ $REPO_NUMBER == 1 ]
 then
-   cp -r /mimer/NOBACKUP/groups/snic2021-7-127/eliassv/SST_${GPU_TYPE}/ $TMPDIR/SST_${GPU_TYPE}
+   echo "Taking SST_${GPU_TYPE}"
+   cp -r /cephyr/NOBACKUP/groups/snic2021-7-127/eliassv/SST_${GPU_TYPE}/ $TMPDIR/SST_${GPU_TYPE}
 else
-   cp -r /mimer/NOBACKUP/groups/snic2021-7-127/eliassv/SST_${GPU_TYPE}_2/ $TMPDIR/SST_${GPU_TYPE}
+   echo "Taking SST_${GPU_TYPE}_2"
+   cp -r /cephyr/NOBACKUP/groups/snic2021-7-127/eliassv/SST_${GPU_TYPE}_2/ $TMPDIR/SST_${GPU_TYPE}
 fi
 echo ""
 echo "Copying of repo to tempdir is now done."
@@ -51,7 +53,7 @@ echo "Linking data to tempdir is now done."
 echo ""
 
 cd $TMPDIR/SST_$GPU_TYPE
-singularity exec --bind /mimer:/mimer --pwd $TMPDIR/SST_$GPU_TYPE \
+singularity exec --pwd $TMPDIR/SST_$GPU_TYPE --bind /mimer:/mimer \
   /cephyr/NOBACKUP/groups/snic2021-7-127/eliassv/sst_env/mmdetection3d_$GPU_TYPE.sif \
   bash tools/dist_train.sh configs/sst_refactor/$CONFIG.py $GPUS_PER_NODE \
   --work-dir /mimer/NOBACKUP/groups/snic2021-7-127/eliassv/jobs/$JOB_ID \

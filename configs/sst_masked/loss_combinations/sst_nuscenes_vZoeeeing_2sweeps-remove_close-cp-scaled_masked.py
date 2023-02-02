@@ -1,12 +1,15 @@
 _base_ = [
     '../sst_refactor/sst_nuscenes_vZoeeeing_2sweeps-remove_close.py'
 ]
+use_chamfer, use_num_points, use_fake_voxels = True, True, False
+relative_error = False
 masking_ratio = 0.7
+fake_voxels_ratio = 0.1
 loss_weights = dict(
-    loss_occupied=0.,
-    loss_num_points_masked=0.,
-    loss_chamfer_src_masked=1,
-    loss_chamfer_dst_masked=1,
+    loss_occupied=1.0,
+    loss_num_points_masked=1.,
+    loss_chamfer_src_masked=1.,
+    loss_chamfer_dst_masked=1.,
     loss_num_points_unmasked=0.,
     loss_chamfer_src_unmasked=0.,
     loss_chamfer_dst_unmasked=0.
@@ -49,7 +52,11 @@ model = dict(
         mute=True,
         masking_ratio=masking_ratio,
         drop_points_th=100,
-        pred_dims=3  # x, y, z
+        pred_dims=3,  # x, y, z
+        use_chamfer=use_chamfer,
+        use_num_points=use_num_points,
+        use_fake_voxels=use_fake_voxels,
+        fake_voxels_ratio=fake_voxels_ratio
     ),
 
     backbone=dict(
@@ -67,6 +74,7 @@ model = dict(
         dim_feedforward=[256, ] * 6,
         output_shape=[400, 400],
         debug=True,
+        use_fake_voxels=use_fake_voxels,
     ),
 
     bbox_head=dict(
@@ -75,11 +83,16 @@ model = dict(
         in_channels=128,
         feat_channels=128,
         num_chamfer_points=10,
-        only_masked=True,
         pred_dims=3,
+        only_masked=True,
+        relative_error=relative_error,
         loss_weights=loss_weights,
+        use_chamfer=use_chamfer,
+        use_num_points=use_num_points,
+        use_fake_voxels=use_fake_voxels,
     )
 )
+
 
 # This schedule is mainly used by models with dynamic voxelization
 # optimizer

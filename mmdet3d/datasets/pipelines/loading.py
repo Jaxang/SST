@@ -1,5 +1,6 @@
 import mmcv
 import numpy as np
+import torch
 
 from mmdet3d.core.points import BasePoints, get_points_type
 from mmdet.datasets.builder import PIPELINES
@@ -126,7 +127,8 @@ class LoadPointsFromMultiSweeps(object):
                  pad_empty_sweeps=False,
                  remove_close=False,
                  close_radius=1.0,
-                 test_mode=False):
+                 test_mode=False,
+                 kitti=False):
         self.load_dim = load_dim
         self.sweeps_num = sweeps_num
         self.use_dim = use_dim
@@ -136,6 +138,7 @@ class LoadPointsFromMultiSweeps(object):
         self.remove_close = remove_close
         self.test_mode = test_mode
         self.close_radius = close_radius
+        self.kitti = kitti
 
     def _load_points(self, pts_filename):
         """Private function to load point clouds data.
@@ -195,24 +198,31 @@ class LoadPointsFromMultiSweeps(object):
                 - points (np.ndarray | :obj:`BasePoints`): Multi-sweep point \
                     cloud arrays.
         """
-        points = results['points']
-        points.tensor[:, 4] = 0
-        sweep_points_list = [self._remove_close(points, self.close_radius) if self.remove_close else points]
-        ts = results['timestamp']
-        if self.pad_empty_sweeps and len(results['sweeps']) == 0:
+        if self.kitti:
+            points = results['points']
+            points[:,3] = 0
+            sweep_points_list = [points]
+            ts = 0
+            n_sweeps = 0
+        else:
+            points = results['points']
+            points.tensor[:, 4] = 0
+            sweep_points_list = [self._remove_close(points, self.close_radius) if self.remove_close else points]
+            ts = results['timestamp']
+            n_sweeps = len(results['sweeps'])
+        if self.pad_empty_sweeps and n_sweeps == 0:
             for i in range(self.sweeps_num):
                 if self.remove_close:
                     sweep_points_list.append(self._remove_close(points, self.close_radius))
                 else:
                     sweep_points_list.append(points)
         else:
-            if len(results['sweeps']) <= self.sweeps_num:
-                choices = np.arange(len(results['sweeps']))
+            if n_sweeps <= self.sweeps_num:
+                choices = np.arange(n_sweeps)
             elif self.test_mode:
                 choices = np.arange(self.sweeps_num)
             else:
-                choices = np.random.choice(
-                    len(results['sweeps']), self.sweeps_num, replace=False)
+                choices = np.random.choice(n_sweeps, self.sweeps_num, replace=False)
             for idx in choices:
                 sweep = results['sweeps'][idx]
                 points_sweep = self._load_points(sweep['data_path'])
@@ -228,7 +238,10 @@ class LoadPointsFromMultiSweeps(object):
                 sweep_points_list.append(points_sweep)
 
         points = points.cat(sweep_points_list)
-        points = points[:, self.use_dim]
+        if self.kitti:
+            points = points
+        else:
+            points = points[:, self.use_dim]
         results['points'] = points
         return results
 
@@ -364,6 +377,7 @@ class LoadPointsFromFile(object):
                  shift_height=False,
                  use_color=False,
                  file_client_args=dict(backend='disk'),
+                 kitti=False
                  ):
         self.shift_height = shift_height
         self.use_color = use_color
@@ -378,6 +392,7 @@ class LoadPointsFromFile(object):
         self.use_dim = use_dim
         self.file_client_args = file_client_args.copy()
         self.file_client = None
+        self.kitti = kitti
 
     def _load_points(self, pts_filename):
         """Private function to load point clouds data.
@@ -419,6 +434,8 @@ class LoadPointsFromFile(object):
         points = self._load_points(pts_filename)
         points = points.reshape(-1, self.load_dim)
         points = points[:, self.use_dim]
+        if self.kitti:
+            points = np.concatenate([points[:, :3], np.zeros((len(points), 1))], 1)
         attribute_dims = None
 
         if self.shift_height:
